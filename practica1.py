@@ -9,20 +9,20 @@ def inRecallTimeWindow(t1,t2):
     delta = dt2 - dt1
     days = int(delta.total_seconds() /86400.0)
     return(days<timeWindowDays)
-
+def chech_if_precursor(row):
+    if (row['call_ts_next'] == 'nan') or (row['call_ts'] == 'nan'):
+        return 'N'
+    if inRecallTimeWindow(row['call_ts'],row['call_ts_next']):
+        return 'Y'
+    
+    return 'N'
 def is_precursor(data):
 
     data = data.sort_values(by=['customer_id','call_ts'])
-    data['is_precursor'] = 'N'
-
-    for customer_id,group in data.groupby('customer_id'):
-
-        for i in range(1,len(group)):
-
-            if inRecallTimeWindow(group.iloc[i-1]['call_ts'],group.iloc[i]['call_ts']):
-
-                data.loc[group.index[i],'is_precursor'] = 'Y'
-    return data 
+    data['call_ts_next'] = data.groupby('customer_id')['call_ts'].shift(-1).astype(str)
+    data['is_precursor'] = data.apply(chech_if_precursor, axis=1)
+    data.drop(columns=['call_ts_next'], inplace=True)
+    return data
 
 def main():
 
@@ -32,7 +32,7 @@ def main():
 
     data = is_precursor(data)
 
-    print(data.head())
+    print(data[data['is_precursor'] == 'Y'].head())
 
 if __name__ == '__main__':
 
