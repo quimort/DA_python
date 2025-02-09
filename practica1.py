@@ -45,28 +45,29 @@ def chunking_sort(chunk_size,input_file,output_file,sort_by):
 
     # merge the chunks
     chunks = [csv.DictReader(open(file_name)) for file_name in file_names]
-    with open(output_file, "w") as outfile:
+    with open(output_file, "w",newline='', encoding='utf-8') as outfile:
         field_names = ["call_id", "customer_id","call_ts"]
-        writer = csv.DictWriter(outfile, fieldnames=field_names)
+        writer = csv.DictWriter(outfile, fieldnames=field_names,delimiter=";", quotechar='"', quoting=csv.QUOTE_NONNUMERIC)
         writer.writeheader()
+
         for row in heapq.merge(*chunks, key=itemgetter("customer_id","call_ts")):
             writer.writerow(row)
+
+    return file_names
 
 def main_by_chunk():
     # primero de todo hacemos un sort de los datos por customer_id y call_ts
 
     # Esta parte es el codigo para el processamiento de los datos en chunks
     CHUNK_SIZE = 1000  
-    INPUT_FILE = "./calls_without_target.csv/calls_without_target.csv"   
+    INPUT_FILE = "./calls_without_target.csv/calls_without_target_in.csv"   
     OUTPUT_FILE = "./calls_without_target.csv/processed_calls.csv"
+    file_names = chunking_sort(CHUNK_SIZE,"./calls_without_target.csv/calls_without_target.csv",INPUT_FILE,['customer_id','call_ts'])
     # Remove output file if it exists
+    for file in file_names:
+        os.remove(file)
     if os.path.exists(OUTPUT_FILE):
         os.remove(OUTPUT_FILE)
-
-    with pd.read_csv(INPUT_FILE,sep=";",chunksize=CHUNK_SIZE) as reader:
-        for i,chunck in enumerate(reader):
-            first_chunk = (i == 0)
-            process_chunk(chunck,OUTPUT_FILE,first_chunk)
 
 def main():
 
@@ -83,4 +84,5 @@ def main():
 
 if __name__ == '__main__':
 
-    main()
+    #main()
+    main_by_chunk()
