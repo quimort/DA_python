@@ -56,8 +56,6 @@ def main():
     if os.path.exists(OUTPUT_FILE):
         os.remove(OUTPUT_FILE)
 
-    prev_last_row = None  # Guarda la ultima fila del anterior chunk processado
-
     with pd.read_csv(INPUT_FILE,sep=";",chunksize=CHUNK_SIZE) as reader:
         for i,chunck in enumerate(reader):
             first_chunk = (i == 0)
