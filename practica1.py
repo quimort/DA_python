@@ -1,6 +1,8 @@
-import numpy as np
+from operator import itemgetter
 import pandas as pd
 import os
+import csv
+import heapq
 
 
 def inRecallTimeWindow(t1, t2, timeWindowDays=2.0):
@@ -32,22 +34,27 @@ def process_chunk(chunk,output_file,first_chunk):
     chunk = precursor_call_id(chunk)
 
     chunk.to_csv(output_file, mode='a', index=False, header=first_chunk)
+def chunking_sort(chunk_size,input_file,output_file,sort_by):
 
+    file_names = []
+    for batch_no, chunk in enumerate(pd.read_csv(input_file, sep=";",chunksize=chunk_size), 1):
+        chunk.sort_values(by=sort_by, inplace=True)
+        file_name = f"{input_file[:-4]}_{batch_no}.csv"
+        chunk.to_csv(file_name, index=False)
+        file_names.append(file_name)
 
+    # merge the chunks
+    chunks = [csv.DictReader(open(file_name)) for file_name in file_names]
+    with open(output_file, "w") as outfile:
+        field_names = ["call_id", "customer_id","call_ts"]
+        writer = csv.DictWriter(outfile, fieldnames=field_names)
+        writer.writeheader()
+        for row in heapq.merge(*chunks, key=itemgetter("customer_id","call_ts")):
+            writer.writerow(row)
 
-def main():
+def main_by_chunk():
+    # primero de todo hacemos un sort de los datos por customer_id y call_ts
 
-    """
-    path = "./calls_without_target.csv/calls_without_target.csv"
-
-    data = pd.read_csv(path,sep=';')
-    data = data.sort_values(by=['customer_id','call_ts'])
-    data['call_ts'] = pd.to_datetime(data['call_ts'])
-
-    data = is_precursor(data)
-
-    data = precursor_call_id(data)
-    """
     # Esta parte es el codigo para el processamiento de los datos en chunks
     CHUNK_SIZE = 1000  
     INPUT_FILE = "./calls_without_target.csv/calls_without_target.csv"   
@@ -60,6 +67,19 @@ def main():
         for i,chunck in enumerate(reader):
             first_chunk = (i == 0)
             process_chunk(chunck,OUTPUT_FILE,first_chunk)
+
+def main():
+
+    path = "./calls_without_target.csv/calls_without_target.csv"
+
+    data = pd.read_csv(path,sep=';')
+    data = data.sort_values(by=['customer_id','call_ts'])
+    data['call_ts'] = pd.to_datetime(data['call_ts'])
+
+    data = is_precursor(data)
+
+    data = precursor_call_id(data)
+    
 
 if __name__ == '__main__':
 
