@@ -1,6 +1,6 @@
 import numpy as np
 import pandas as pd
-from datetime import datetime
+import os
 
 
 def inRecallTimeWindow(t1, t2, timeWindowDays=2.0):
@@ -52,6 +52,12 @@ def main():
     CHUNK_SIZE = 1000  
     INPUT_FILE = "./calls_without_target.csv/calls_without_target.csv"   
     OUTPUT_FILE = "./calls_without_target.csv/processed_calls.csv"
+    # Remove output file if it exists
+    if os.path.exists(OUTPUT_FILE):
+        os.remove(OUTPUT_FILE)
+
+    prev_last_row = None  # Guarda la ultima fila del anterior chunk processado
+
     with pd.read_csv(INPUT_FILE,sep=";",chunksize=CHUNK_SIZE) as reader:
         for i,chunck in enumerate(reader):
             first_chunk = (i == 0)
