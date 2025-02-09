@@ -25,15 +25,29 @@ def precursor_call_id(data):
     data.drop(columns=['call_ts_previous','call_id_previous'],inplace=True)
     return data
 
-def process_chunk(chunk,output_file,first_chunk):
+def process_chunk(chunk,prev_last_row, next_first_row,output_file,first_chunk):
+
+    if prev_last_row is not None:
+        chunk = pd.concat([prev_last_row, chunk])
+    if next_first_row is not None:
+        chunk = pd.concat([chunk, next_first_row])
 
     chunk = chunk.sort_values(by=['customer_id','call_ts'])
     chunk['call_ts'] = pd.to_datetime(chunk['call_ts'])
 
     chunk = is_precursor(chunk)
     chunk = precursor_call_id(chunk)
+    # Extract first and last rows for next iteration
+    next_prev_last_row = chunk.iloc[[-1]]  # Last row for next chunk
+    next_first_row = chunk.iloc[[0]]  # First row for next chunk
 
-    chunk.to_csv(output_file, mode='a', index=False, header=first_chunk)
+    # Remove first and last row before saving
+    chunk = chunk.iloc[1:-1]  
+
+    chunk.to_csv(output_file, mode='a', index=False, header=first_chunk,quoting=csv.QUOTE_NONNUMERIC)
+
+    return next_prev_last_row, next_first_row
+
 def chunking_sort(chunk_size,input_file,output_file,sort_by):
 
     file_names = []
@@ -68,6 +82,26 @@ def main_by_chunk():
         os.remove(file)
     if os.path.exists(OUTPUT_FILE):
         os.remove(OUTPUT_FILE)
+    
+    prev_last_row = None  
+    next_first_row = None 
+
+    with pd.read_csv(INPUT_FILE, chunksize=CHUNK_SIZE, names=['call_id','customer_id','call_ts']) as reader:
+        first_chunk = True
+        next_chunk = next(reader, None)  # Read first chunk to preload next_first_row
+
+        while next_chunk is not None:
+            # Read ahead to get first row of the next chunk
+            future_chunk = next(reader, None)  
+            if future_chunk is not None:
+                next_first_row = future_chunk.iloc[[0]]  
+
+            # Process current chunk safely
+            prev_last_row, next_first_row = process_chunk(next_chunk, prev_last_row, next_first_row, OUTPUT_FILE,first_chunk)
+
+            # Move to next chunk
+            next_chunk = future_chunk
+            first_chunk = False  
 
 def main():
 
