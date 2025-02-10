@@ -87,7 +87,7 @@ def main_by_chunk():
     prev_last_row = None  
     next_first_row = None 
 
-    with pd.read_csv(INPUT_FILE, chunksize=CHUNK_SIZE, names=['call_id','customer_id','call_ts']) as reader:
+    with pd.read_csv(INPUT_FILE, chunksize=CHUNK_SIZE, sep=";", names=['call_id','customer_id','call_ts']) as reader:
         first_chunk = True
         next_chunk = next(reader, None)  # Read first chunk to preload next_first_row
 
@@ -121,6 +121,6 @@ def main():
 
 if __name__ == '__main__':
     start = time.time()
-    main()
+    #main()
     print(time.time()-start)
-    #main_by_chunk()
+    main_by_chunk()
