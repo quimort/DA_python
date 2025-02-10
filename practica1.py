@@ -3,6 +3,7 @@ import pandas as pd
 import os
 import csv
 import heapq
+import time 
 
 
 def inRecallTimeWindow(t1, t2, timeWindowDays=2.0):
@@ -114,9 +115,12 @@ def main():
     data = is_precursor(data)
 
     data = precursor_call_id(data)
+
+    print(data.head())
     
 
 if __name__ == '__main__':
-
-    #main()
-    main_by_chunk()
+    start = time.time()
+    main()
+    print(time.time()-start)
+    #main_by_chunk()
