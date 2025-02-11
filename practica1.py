@@ -22,16 +22,16 @@ def precursor_call_id(data):
     data['call_id_previous'] = data.groupby('customer_id')['call_id'].shift(1)
     mask = inRecallTimeWindow(data['call_ts_previous'], data['call_ts'])
     data['precursor_call_id'] = data['call_id_previous'].where(mask).astype('Int64')
-    data['hours_from_first_call'] = (data['call_ts']- data['call_ts_previous']).dt.total_seconds() / 3600
+    data['hours_from_first_call'] = ((data['call_ts']- data['call_ts_previous']).dt.total_seconds() / 3600).where(mask).astype("float64")
     data.drop(columns=['call_ts_previous','call_id_previous'],inplace=True)
     return data
 
 def process_chunk(chunk,prev_last_row, next_first_row,output_file,first_chunk):
 
     if prev_last_row is not None:
-        chunk = pd.concat([prev_last_row, chunk])
+        chunk = pd.concat([prev_last_row, chunk], axis=0, ignore_index=True)
     if next_first_row is not None:
-        chunk = pd.concat([chunk, next_first_row])
+        chunk = pd.concat([chunk, next_first_row], axis=0, ignore_index=True)
 
     chunk = chunk.sort_values(by=['customer_id','call_ts'])
     chunk['call_ts'] = pd.to_datetime(chunk['call_ts'])
@@ -39,7 +39,7 @@ def process_chunk(chunk,prev_last_row, next_first_row,output_file,first_chunk):
     chunk = is_precursor(chunk)
     chunk = precursor_call_id(chunk)
     # Extract first and last rows for next iteration
-    next_prev_last_row = chunk.iloc[[-1]]  # Last row for next chunk
+    next_prev_last_row = chunk[['call_id','customer_id','call_ts']].iloc[[-1]]  # Last row for next chunk
     next_first_row = chunk.iloc[[0]]  # First row for next chunk
 
     # Remove first and last row before saving
@@ -87,7 +87,7 @@ def main_by_chunk():
     prev_last_row = None  
     next_first_row = None 
 
-    with pd.read_csv(INPUT_FILE, chunksize=CHUNK_SIZE, sep=";", names=['call_id','customer_id','call_ts']) as reader:
+    with pd.read_csv(INPUT_FILE, chunksize=CHUNK_SIZE, sep=";", names=['call_id','customer_id','call_ts'], header=0) as reader:
         first_chunk = True
         next_chunk = next(reader, None)  # Read first chunk to preload next_first_row
 
@@ -95,7 +95,7 @@ def main_by_chunk():
             # Read ahead to get first row of the next chunk
             future_chunk = next(reader, None)  
             if future_chunk is not None:
-                next_first_row = future_chunk.iloc[[0]]  
+                next_first_row = pd.DataFrame([future_chunk.iloc[[0]].values.flatten()],columns=['call_id','customer_id','call_ts'])
 
             # Process current chunk safely
             prev_last_row, next_first_row = process_chunk(next_chunk, prev_last_row, next_first_row, OUTPUT_FILE,first_chunk)
@@ -122,5 +122,5 @@ def main():
 if __name__ == '__main__':
     start = time.time()
     #main()
-    print(time.time()-start)
     main_by_chunk()
+    print(time.time()-start)
